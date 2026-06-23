@@ -31,29 +31,29 @@ contract PropertyEscrow is
 
     /// @notice Defines the parameters and approval status for an individual phase of the property purchase.
     struct Milestone {
-        uint128 amount;           // The specific stablecoin volume allocated for this particular phase.
-        bool completed;           // True if the phase funds have been successfully released or finalized.
-        bool inspectorApproved;   // True if the independent inspector has signed off on this milestone.
-        bool buyerApproved;       // True if the buyer has formally verified and approved this phase.
-        bool sellerApproved;      // True if the seller has marked their part of the work as complete.
-        bytes32 descriptionHash;  // Off-chain documentation identifier (IPFS/Data hash) describing phase requirements.
+        uint128 amount; // The specific stablecoin volume allocated for this particular phase.
+        bool completed; // True if the phase funds have been successfully released or finalized.
+        bool inspectorApproved; // True if the independent inspector has signed off on this milestone.
+        bool buyerApproved; // True if the buyer has formally verified and approved this phase.
+        bool sellerApproved; // True if the seller has marked their part of the work as complete.
+        bytes32 descriptionHash; // Off-chain documentation identifier (IPFS/Data hash) describing phase requirements.
     }
 
     /// @notice Storage layout containing the comprehensive state, roles, and financial tracking of an escrow deal.
     struct Agreement {
-        State state;                          // Current lifecycle status of the property deal (e.g., Created, Funded).
-        uint8 completedMilestonesCount;       // Total number of phases that have been successfully finished and paid out.
-        uint32 deadline;                      // Unix timestamp defining when the contract execution period expires.
-        uint32 disputeOpenedAt;               // Unix timestamp capturing the exact moment a formal dispute was triggered.
-        uint32 buyerProposedDeadline;         // Storage buffer for the buyer's suggested new deadline during extensions.
-        uint32 sellerProposedDeadline;        // Storage buffer for the seller's suggested new deadline during extensions.
-        address buyer;                        // Wallet address of the real estate property purchaser.
-        address seller;                       // Wallet address of the property developer or legal seller.
-        address inspector;                     // Wallet address of the trusted neutral referee overseeing the milestones.
-        uint256 totalAmount;                  // Combined financial value of all contractual milestones (excluding fees).
-        uint256 withdrawnAmount;              // Cumulative token volume already extracted from this agreement (payouts or refunds).
-        uint256 inspectorFee;                 // Fixed payment locked inside the contract to compensate the inspector's labor.
-        Milestone[] milestones;               // Dynamic array containing the chronological order of phases for the deal.
+        State state; // Current lifecycle status of the property deal (e.g., Created, Funded).
+        uint8 completedMilestonesCount; // Total number of phases that have been successfully finished and paid out.
+        uint32 deadline; // Unix timestamp defining when the contract execution period expires.
+        uint32 disputeOpenedAt; // Unix timestamp capturing the exact moment a formal dispute was triggered.
+        uint32 buyerProposedDeadline; // Storage buffer for the buyer's suggested new deadline during extensions.
+        uint32 sellerProposedDeadline; // Storage buffer for the seller's suggested new deadline during extensions.
+        address buyer; // Wallet address of the real estate property purchaser.
+        address seller; // Wallet address of the property developer or legal seller.
+        address inspector; // Wallet address of the trusted neutral referee overseeing the milestones.
+        uint256 totalAmount; // Combined financial value of all contractual milestones (excluding fees).
+        uint256 withdrawnAmount; // Cumulative token volume already extracted from this agreement (payouts or refunds).
+        uint256 inspectorFee; // Fixed payment locked inside the contract to compensate the inspector's labor.
+        Milestone[] milestones; // Dynamic array containing the chronological order of phases for the deal.
     }
 
     /// @notice The ERC20 token contract interface used for all financial settlements (e.g., USDC).
@@ -193,8 +193,7 @@ contract PropertyEscrow is
     }
 
     /// @notice Initializes the proxy contract with essential protocol parameters.
-    /// @dev Replaces the traditional constructor for UUPS upgradeable layout.
-    /// Can only be invoked once globally due to the `initializer` modifier.
+    /// @dev Replaces the traditional constructor for UUPS upgradeable layout. Can only be invoked once globally due to the `initializer` modifier.
     /// @param _token The address of the ERC20 token utilized for escrow properties (e.g., USDC).
     /// @param _protocolFeeBps The protocol fee percentage represented in basis points (100 BPS = 1%).
     /// @param initialOwner The address assigned as the administrative owner authorized for upgrades and pausing.
@@ -476,7 +475,7 @@ contract PropertyEscrow is
         uint256 sellerEarnedMilestones = 0;
 
         for (uint256 i = 0; i < len;) {
-            Milestone memory m = a.milestones[i];
+            Milestone storage m = a.milestones[i];
 
             if (!m.completed && _getApprovalsCount(m) < 2) {
                 refundAmount += m.amount;
