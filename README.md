@@ -44,7 +44,7 @@ forge script script/PropertyEscrow.s.sol:DeployPropertyEscrow --rpc-url $RPC_URL
 ## Testing
 
 - Unit tests: 100+ test cases covering all functions
-- Coverage: 97% lines, 97% statements, 91% branches
+- Coverage: 96% lines, 96% statements, 93% branches
 - Invariant tests: Fund conservation, state validity, approval limits
 
 ## License
