@@ -380,6 +380,9 @@ contract PropertyEscrow is
         if (a.state != State.Funded && a.state != State.Disputed) {
             revert InvalidState();
         }
+
+        if (block.timestamp > a.deadline) revert DeadlineExpired();
+
         if (milestoneId >= a.milestones.length) revert InvalidIndex();
 
         Milestone storage m = a.milestones[milestoneId];
@@ -557,7 +560,7 @@ contract PropertyEscrow is
         uint256 len = a.milestones.length;
 
         for (uint256 i = 0; i < len;) {
-            Milestone memory m = a.milestones[i];
+            Milestone storage m = a.milestones[i];
 
             if (!m.completed && _getApprovalsCount(m) >= 2) {
                 minimumSellerRelease += m.amount;
@@ -621,7 +624,7 @@ contract PropertyEscrow is
         uint256 len = a.milestones.length;
 
         for (uint256 i = 0; i < len;) {
-            Milestone memory m = a.milestones[i];
+            Milestone storage m = a.milestones[i];
 
             if (!m.completed) {
                 if (_getApprovalsCount(m) < 2) {
@@ -741,5 +744,11 @@ contract PropertyEscrow is
         if (newFeeBps > MAX_PROTOCOL_FEE_BPS) revert ProtocolFeeTooHigh();
 
         protocolFeeBps = newFeeBps;
+    }
+
+    /// @notice get agreement
+    /// @param agreementId The unique identifier of the escrow agreement to be cancelled.
+    function getAgreement(uint256 agreementId) external view agreementExists(agreementId) returns (Agreement memory) {
+        return agreements[agreementId];
     }
 }

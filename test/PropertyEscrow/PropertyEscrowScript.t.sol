@@ -14,6 +14,7 @@ contract PropertyEscrowScriptTest is Test {
         vm.setEnv("PRIVATE_KEY", "0xabc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc1");
 
         vm.setEnv("SEPOLIA_USDC_ADDRESS", "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238");
+
     }
 
     function test_ScriptDeploymentFlow() public {

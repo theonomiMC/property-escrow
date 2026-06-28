@@ -6,6 +6,7 @@ import {PropertyEscrowBaseTest} from "./P_BaseTest.t.sol";
 import {PropertyEscrow} from "../../src/PropertyEscrow.sol";
 
 contract PropertyEscrow_ReleaseTest is PropertyEscrowBaseTest {
+
     function test_ReleaseFunds_Success_StandardMilestone() public givenFundedAgreement {
         _approveFrom(buyer, defaultAgreementId, 0);
         _approveFrom(inspector, defaultAgreementId, 0);
@@ -31,6 +32,18 @@ contract PropertyEscrow_ReleaseTest is PropertyEscrowBaseTest {
 
         assertEq(usdc.balanceOf(seller), 500e6);
         assertEq(usdc.balanceOf(inspector), 0); // not the last milestone
+    }
+
+    function test_ReleaseFunds_Success_afterDeadline() public givenFundedAgreement {
+        _approveFrom(inspector, defaultAgreementId, 0);
+        _approveFrom(seller, defaultAgreementId, 0);
+
+        vm.warp(block.timestamp + defaultDeadline + 1 days);
+
+        vm.prank(seller);
+        escrow.releaseFunds(defaultAgreementId, 0);
+
+        assertEq(usdc.balanceOf(seller), 500e6);
     }
 
     function test_ReleaseFunds_Revert_InsufficientApprovals() public givenFundedAgreement {
@@ -168,4 +181,14 @@ contract PropertyEscrow_ReleaseTest is PropertyEscrowBaseTest {
         vm.expectRevert(PropertyEscrow.AgreementNotFound.selector);
         escrow.approveMilestone(9, 0);
     }
+
+    function test_Revert_ApproveMilestoneAfterDeadline() public givenFundedAgreement{
+        vm.warp(defaultDeadline + 1);
+        
+        vm.prank(buyer);
+        vm.expectRevert(PropertyEscrow.DeadlineExpired.selector);
+        escrow.approveMilestone(defaultAgreementId, 0);
+    }
+
+    
 }
