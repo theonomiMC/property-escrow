@@ -92,7 +92,7 @@ contract PropertyEscrow_ManagementTest is PropertyEscrowBaseTest {
 
         assertEq(currentInspector, newInspector);
     }
-    
+
     function test_ChangeInspector_Revert_IfCompleted() public givenFundedAgreement {
         for (uint256 i = 0; i < 2; i++) {
             _approveFrom(buyer, defaultAgreementId, i);

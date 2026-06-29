@@ -20,7 +20,8 @@ contract PropertyEscrowInvariant is StdInvariant, Test {
     function setUp() public {
         usdc = new MockUSDC();
         PropertyEscrow impl = new PropertyEscrow();
-        bytes memory data = abi.encodeWithSelector(PropertyEscrow.initialize.selector, address(usdc), 100, address(this));
+        bytes memory data =
+            abi.encodeWithSelector(PropertyEscrow.initialize.selector, address(usdc), 100, address(this));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), data);
         escrow = PropertyEscrow(address(proxy));
 
@@ -62,6 +63,7 @@ contract PropertyEscrowInvariant is StdInvariant, Test {
             assertLe(withdrawn, total, "Withdrawn amount exceeds total amount!");
         }
     }
+
     function invariant_MilestonesSumEqualsTotalAmount() public view {
         uint256 length = handler.activeAgreementsCount();
         for (uint256 i = 0; i < length; i++) {
@@ -73,5 +75,4 @@ contract PropertyEscrowInvariant is StdInvariant, Test {
             assertEq(sum, a.totalAmount, "Milestone amounts do not sum up to totalAmount!");
         }
     }
-
 }
