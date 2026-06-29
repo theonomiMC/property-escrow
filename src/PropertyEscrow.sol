@@ -54,6 +54,8 @@ contract PropertyEscrow is
         uint256 withdrawnAmount; // Cumulative token volume already extracted from this agreement (payouts or refunds).
         uint256 inspectorFee; // Fixed payment locked inside the contract to compensate the inspector's labor.
         Milestone[] milestones; // Dynamic array containing the chronological order of phases for the deal.
+        address buyerProposedInspector; // buyer suggests new inspector
+        address sellerProposedInspector; // seller suggests new inspector
     }
 
     /// @notice The ERC20 token contract interface used for all financial settlements (e.g., USDC).
@@ -83,6 +85,7 @@ contract PropertyEscrow is
     /// @dev Storage gap reserve to protect variable slot positions during future upgrade proxy logic migrations (UUPS requirement).
     uint256[50] private __gap;
 
+    // ============= EVENTS ===========================
     /// @notice Emitted when a dispute is formally resolved by the assigned inspector.
     /// @param agreementId The unique identifier of the resolved escrow agreement.
     /// @param buyerAmount The precise token volume refunded to the buyer (in wei).
@@ -133,6 +136,13 @@ contract PropertyEscrow is
     /// @notice Emitted when the global protocol fee is calculated and instantly pushed to the owner wallet.
     event TransferProtocolFee(address indexed buyer, address indexed owner, uint256 protocolFee);
 
+    /// @notice Emitted when the inspector is changed
+    event InspectorChanged(uint256 indexed agreementId, address indexed newInspector);
+
+    /// @notice Emitted when protocol fee is updated
+    event ProtocolFeeUpdated(uint256 newFeeBps);
+
+    // ============= CUSTOM ERRORS ===========================
     /// @notice Thrown when the msg.sender is not authorized to execute the restricted operation.
     error Unauthorized();
 
@@ -377,7 +387,7 @@ contract PropertyEscrow is
         agreementExists(agreementId)
     {
         Agreement storage a = agreements[agreementId];
-        if (a.state != State.Funded && a.state != State.Disputed) {
+        if (a.state != State.Funded) {
             revert InvalidState();
         }
 
@@ -466,12 +476,12 @@ contract PropertyEscrow is
     {
         Agreement storage a = agreements[agreementId];
 
-        if (a.state != State.Funded && a.state != State.Disputed) {
+        if (a.state != State.Funded) {
             revert InvalidState();
         }
         if (block.timestamp < a.deadline) revert StillInDeadline();
 
-        uint256 refundAmount = 0;
+        uint256 milestoneRefund = 0;
         bool pendingSellerFunds = false;
         uint256 len = a.milestones.length;
 
@@ -481,7 +491,7 @@ contract PropertyEscrow is
             Milestone storage m = a.milestones[i];
 
             if (!m.completed && _getApprovalsCount(m) < 2) {
-                refundAmount += m.amount;
+                milestoneRefund += m.amount;
                 m.completed = true; // locked from realese
             } else {
                 pendingSellerFunds = true;
@@ -493,15 +503,17 @@ contract PropertyEscrow is
             }
         }
 
-        if (refundAmount == 0) revert ZeroAmount();
+        if (milestoneRefund == 0) revert ZeroAmount();
+
+        uint256 feeRefund = 0;
 
         if (a.inspectorFee > 0) {
             uint256 totalFee = a.inspectorFee;
 
             uint256 inspectorEarned = (totalFee * sellerEarnedMilestones) / len;
-            uint256 buyerRefundFee = totalFee - inspectorEarned;
+            feeRefund = totalFee - inspectorEarned;
 
-            refundAmount += buyerRefundFee;
+            // refundAmount += buyerRefundFee;
             a.inspectorFee = 0;
 
             if (inspectorEarned > 0) {
@@ -510,15 +522,16 @@ contract PropertyEscrow is
                 emit TransferInspectorFee(a.inspector, inspectorEarned);
             }
         }
-        a.withdrawnAmount += refundAmount;
+        a.withdrawnAmount += milestoneRefund;
 
         if (!pendingSellerFunds) {
             a.state = State.Refunded;
         }
 
-        token.safeTransfer(msg.sender, refundAmount);
+        uint256 totalRefundToBuyer = milestoneRefund + feeRefund;
+        token.safeTransfer(msg.sender, totalRefundToBuyer);
 
-        emit Refunded(agreementId, msg.sender, refundAmount);
+        emit Refunded(agreementId, msg.sender, totalRefundToBuyer);
     }
 
     /// @notice Opens a formal dispute for a funded agreement, freezing standard milestone flows.
@@ -678,7 +691,7 @@ contract PropertyEscrow is
             revert InvalidDeadline();
         }
 
-        if (a.state != State.Funded && a.state != State.Disputed) {
+        if (a.state != State.Funded) {
             revert InvalidState();
         }
 
@@ -715,6 +728,32 @@ contract PropertyEscrow is
         emit AgreementCancelled(agreementId);
     }
 
+    /// @notice Proposes the new inspector for a specific agreement.
+    /// @dev buyer or seller can propose new inspector.
+    /// @param agreementId The unique identifier of the escrow agreement.
+    /// @param newInspector The address of the newly proposed inspector.
+    function proposeNewInspector(uint256 agreementId, address newInspector) external agreementExists(agreementId) {
+        Agreement storage a = agreements[agreementId];
+
+        if (a.state != State.Funded && a.state != State.Disputed) revert InvalidState();
+        if (msg.sender != a.buyer && msg.sender != a.seller) revert Unauthorized();
+        if (newInspector == address(0) || newInspector == a.buyer || newInspector == a.seller) revert InvalidAddress();
+
+        if (msg.sender == a.buyer) a.buyerProposedInspector = newInspector;
+        else a.sellerProposedInspector = newInspector;
+
+        // თუ ორივე მხარე ეთანხმება ერთსა და იმავე მისამართს
+        if (a.buyerProposedInspector != address(0) && a.buyerProposedInspector == a.sellerProposedInspector) {
+            a.inspector = a.buyerProposedInspector;
+
+            // ბუფერების გასუფთავება
+            a.buyerProposedInspector = address(0);
+            a.sellerProposedInspector = address(0);
+
+            emit InspectorChanged(agreementId, a.inspector);
+        }
+    }
+
     /// @notice Updates the assigned inspector for a specific agreement.
     /// @dev Administrative function restricted exclusively to the contract owner.
     /// Validates the agreement state and prevents assigning the buyer, seller, or zero address as the new inspector.
@@ -726,13 +765,14 @@ contract PropertyEscrow is
         agreementExists(agreementId)
     {
         Agreement storage a = agreements[agreementId];
-        if (a.state != State.Created && a.state != State.Funded && a.state != State.Disputed) revert InvalidState();
+        if (a.state != State.Created) revert InvalidState();
         if (newInspector == address(0)) revert ZeroAddress();
         if (newInspector == a.buyer || newInspector == a.seller) {
             revert InvalidAddress();
         }
 
         a.inspector = newInspector;
+        emit InspectorChanged(agreementId, newInspector);
     }
 
     /// @notice Modifies the global protocol fee percentage basis points.
@@ -744,6 +784,7 @@ contract PropertyEscrow is
         if (newFeeBps > MAX_PROTOCOL_FEE_BPS) revert ProtocolFeeTooHigh();
 
         protocolFeeBps = newFeeBps;
+        emit ProtocolFeeUpdated(newFeeBps);
     }
 
     /// @notice get agreement

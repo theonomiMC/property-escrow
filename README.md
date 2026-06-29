@@ -18,6 +18,12 @@ A smart contract that holds money during real estate deals. Three parties agree:
 - After 30 days of no resolution, buyer gets refund and inspector loses their fee
 - Owner can pause the contract in emergencies
 
+**Changes:**
+- Added inspector proposal mechanism (mutual consent)
+- Blocked approvals during disputes (freezes negotiations)
+- Improved deadline validation
+- Test coverage: 96.91%
+
 ## Setup
 
 ```bash
@@ -38,7 +44,7 @@ forge script script/PropertyEscrow.s.sol:DeployPropertyEscrow --rpc-url $RPC_URL
 
 - Network: Sepolia
 - Token: USDC at `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238`
-- Implementation: `0xE3d99B29B6930C2193d13F2730D5D8E57fEa98f8`
+- Implementation: `0xA425591f89BD4f53dFA7f52D373f3BDef37b7FdB`
 - Proxy: `0xfe6aF1412F08AC469f79B8BF6FB471FF02c5f3d3`
 
 ## Testing

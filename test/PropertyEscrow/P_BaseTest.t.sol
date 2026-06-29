@@ -97,15 +97,12 @@ abstract contract PropertyEscrowBaseTest is Test {
 
     // get agreement state
     function _getState(uint256 agreementId) internal view returns (PropertyEscrow.State) {
-        (PropertyEscrow.State state,,,,,,,,,,,) = escrow.agreements(agreementId);
-        return state;
+        return escrow.getAgreement(agreementId).state;
     }
 
     // get agreement total amount
     function _getAgrTotalAmount(uint256 agreementId) internal view returns (uint256) {
-        (,,,,,,,,, uint256 totalAmount,,) = escrow.agreements(agreementId);
-
-        return totalAmount;
+        return escrow.getAgreement(agreementId).totalAmount;
     }
 
     modifier givenFundedAgreement() {

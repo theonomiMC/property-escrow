@@ -85,6 +85,14 @@ contract PropertyEscrow_RefundTest is PropertyEscrowBaseTest {
         escrow.refundFunds(defaultAgreementId);
     }
 
+    function test_RefundFunds_Revert_DuringDispute() public givenDisputedAgreement {
+        vm.warp(block.timestamp + defaultDeadline + 1 days);
+        vm.prank(buyer);
+
+        vm.expectRevert(PropertyEscrow.InvalidState.selector);
+        escrow.refundFunds(defaultAgreementId);
+    }
+
     function test_RefundFunds_Revert_InvalidState_Created() public {
         uint256 id =
             _createAgreementOnly(buyer, seller, inspector, uint32(block.timestamp + 10 days), defaultFee, 2, 500e6);

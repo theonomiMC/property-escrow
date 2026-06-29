@@ -6,7 +6,6 @@ import {PropertyEscrowBaseTest} from "./P_BaseTest.t.sol";
 import {PropertyEscrow} from "../../src/PropertyEscrow.sol";
 
 contract PropertyEscrow_ReleaseTest is PropertyEscrowBaseTest {
-
     function test_ReleaseFunds_Success_StandardMilestone() public givenFundedAgreement {
         _approveFrom(buyer, defaultAgreementId, 0);
         _approveFrom(inspector, defaultAgreementId, 0);
@@ -39,6 +38,19 @@ contract PropertyEscrow_ReleaseTest is PropertyEscrowBaseTest {
         _approveFrom(seller, defaultAgreementId, 0);
 
         vm.warp(block.timestamp + defaultDeadline + 1 days);
+
+        vm.prank(seller);
+        escrow.releaseFunds(defaultAgreementId, 0);
+
+        assertEq(usdc.balanceOf(seller), 500e6);
+    }
+
+    function test_ReleaseFunds_Success_duringDispute() public givenFundedAgreement {
+        _approveFrom(inspector, defaultAgreementId, 0);
+        _approveFrom(seller, defaultAgreementId, 0);
+
+        vm.prank(buyer);
+        escrow.openDispute(defaultAgreementId);
 
         vm.prank(seller);
         escrow.releaseFunds(defaultAgreementId, 0);
@@ -182,13 +194,17 @@ contract PropertyEscrow_ReleaseTest is PropertyEscrowBaseTest {
         escrow.approveMilestone(9, 0);
     }
 
-    function test_Revert_ApproveMilestoneAfterDeadline() public givenFundedAgreement{
+    function test_ApproveMilestone_Revert_DuringDispute() public givenDisputedAgreement {
+        vm.prank(seller);
+        vm.expectRevert(PropertyEscrow.InvalidState.selector);
+        escrow.approveMilestone(defaultAgreementId, 0);
+    }
+
+    function test_Revert_ApproveMilestoneAfterDeadline() public givenFundedAgreement {
         vm.warp(defaultDeadline + 1);
-        
+
         vm.prank(buyer);
         vm.expectRevert(PropertyEscrow.DeadlineExpired.selector);
         escrow.approveMilestone(defaultAgreementId, 0);
     }
-
-    
 }

@@ -20,7 +20,7 @@ contract PropertyEscrowInvariant is StdInvariant, Test {
     function setUp() public {
         usdc = new MockUSDC();
         PropertyEscrow impl = new PropertyEscrow();
-        bytes memory data = abi.encodeWithSelector(PropertyEscrow.initialize.selector, address(usdc), 0, address(this));
+        bytes memory data = abi.encodeWithSelector(PropertyEscrow.initialize.selector, address(usdc), 100, address(this));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), data);
         escrow = PropertyEscrow(address(proxy));
 
@@ -45,11 +45,33 @@ contract PropertyEscrowInvariant is StdInvariant, Test {
     function invariant_ZeroBalanceInCreatedOrCancelledState() public view {
         uint256 length = handler.activeAgreementsCount();
         for (uint256 i = 0; i < length; i++) {
-            (PropertyEscrow.State state,,,,,,,,,, uint256 withdrawnAmount,) = escrow.agreements(i);
+            PropertyEscrow.State state = escrow.getAgreement(i).state;
+            uint256 withdrawnAmount = escrow.getAgreement(i).withdrawnAmount;
 
             if (state == PropertyEscrow.State.Created || state == PropertyEscrow.State.Cancelled) {
                 assertEq(withdrawnAmount, 0, "Created/Cancelled agreement has unauthorized withdrawn amount!");
             }
         }
     }
+
+    function invariant_WithdrawnAmountNeverExceedsTotal() public view {
+        uint256 length = handler.activeAgreementsCount();
+        for (uint256 i = 0; i < length; i++) {
+            uint256 withdrawn = escrow.getAgreement(i).withdrawnAmount;
+            uint256 total = escrow.getAgreement(i).totalAmount;
+            assertLe(withdrawn, total, "Withdrawn amount exceeds total amount!");
+        }
+    }
+    function invariant_MilestonesSumEqualsTotalAmount() public view {
+        uint256 length = handler.activeAgreementsCount();
+        for (uint256 i = 0; i < length; i++) {
+            PropertyEscrow.Agreement memory a = escrow.getAgreement(i);
+            uint256 sum = 0;
+            for (uint256 j = 0; j < a.milestones.length; j++) {
+                sum += a.milestones[j].amount;
+            }
+            assertEq(sum, a.totalAmount, "Milestone amounts do not sum up to totalAmount!");
+        }
+    }
+
 }

@@ -15,7 +15,7 @@ contract PropertyEscrow_ManagementTest is PropertyEscrowBaseTest {
         vm.prank(seller);
         escrow.extendDeadline(defaultAgreementId, uint32(newDeadline));
 
-        (,, uint32 currentDeadline,,,,,,,,,) = escrow.agreements(defaultAgreementId);
+        uint32 currentDeadline = escrow.getAgreement(defaultAgreementId).deadline;
 
         assertEq(currentDeadline, uint32(newDeadline));
     }
@@ -26,7 +26,7 @@ contract PropertyEscrow_ManagementTest is PropertyEscrowBaseTest {
         vm.prank(buyer);
         escrow.extendDeadline(defaultAgreementId, uint32(newDeadline));
 
-        (,, uint32 currentDeadline,,,,,,,,,) = escrow.agreements(defaultAgreementId);
+        uint32 currentDeadline = escrow.getAgreement(defaultAgreementId).deadline;
 
         assertNotEq(currentDeadline, uint32(newDeadline));
     }
@@ -37,9 +37,17 @@ contract PropertyEscrow_ManagementTest is PropertyEscrowBaseTest {
         vm.prank(seller);
         escrow.extendDeadline(defaultAgreementId, uint32(newDeadline));
 
-        (,, uint32 currentDeadline,,,,,,,,,) = escrow.agreements(defaultAgreementId);
+        uint32 currentDeadline = escrow.getAgreement(defaultAgreementId).deadline;
 
         assertNotEq(currentDeadline, uint32(newDeadline));
+    }
+
+    function test_ExtendDeadline_Revert_DuringDispute() public givenDisputedAgreement {
+        uint256 newDeadline = block.timestamp + 30 days;
+
+        vm.prank(seller);
+        vm.expectRevert(PropertyEscrow.InvalidState.selector);
+        escrow.extendDeadline(defaultAgreementId, uint32(newDeadline));
     }
 
     function test_ExtendDeadline_Revert_InvalidDeadline() public givenFundedAgreement {
@@ -73,59 +81,137 @@ contract PropertyEscrow_ManagementTest is PropertyEscrowBaseTest {
     }
 
     // Change Inspector
-    function test_ChangeInspector_Success() public givenFundedAgreement {
+    function test_ChangeInspector_Success() public {
+        uint256 id = _createAgreementOnly(buyer, seller, inspector, uint32(defaultDeadline), 50e6, 1, 300e6);
         address newInspector = makeAddr("New Inspector");
 
         vm.prank(address(this));
-        escrow.changeInspector(defaultAgreementId, newInspector);
+        escrow.changeInspector(id, newInspector);
 
-        (,,,,,,,, address currentInspector,,,) = escrow.agreements(defaultAgreementId);
+        address currentInspector = escrow.getAgreement(id).inspector;
 
         assertEq(currentInspector, newInspector);
     }
+    
+    function test_ChangeInspector_Revert_IfCompleted() public givenFundedAgreement {
+        for (uint256 i = 0; i < 2; i++) {
+            _approveFrom(buyer, defaultAgreementId, i);
+            _approveFrom(inspector, defaultAgreementId, i);
+            vm.prank(seller);
+            escrow.releaseFunds(defaultAgreementId, i);
+        }
+        vm.prank(escrow.owner());
+        vm.expectRevert(PropertyEscrow.InvalidState.selector);
+        escrow.changeInspector(defaultAgreementId, address(0x1234));
+    }
 
-    function test_ChangeInspector_Revert_NotOwner() public givenFundedAgreement {
+    function test_ChangeInspector_Revert_NotOwner() public {
+        uint256 id = _createAgreementOnly(buyer, seller, inspector, uint32(defaultDeadline), 50e6, 1, 300e6);
         address newInspector = makeAddr("New Inspector");
 
         vm.prank(buyer);
         vm.expectRevert();
-        escrow.changeInspector(defaultAgreementId, newInspector);
+        escrow.changeInspector(id, newInspector);
     }
 
-    function test_ChangeInspector_Revert_onBuyerOrSeller() public givenFundedAgreement {
+    function test_ChangeInspector_Revert_onBuyerOrSeller() public {
+        uint256 id = _createAgreementOnly(buyer, seller, inspector, uint32(defaultDeadline), 50e6, 1, 300e6);
         vm.prank(address(this));
         vm.expectRevert(PropertyEscrow.InvalidAddress.selector);
-        escrow.changeInspector(defaultAgreementId, buyer);
+        escrow.changeInspector(id, buyer);
 
         vm.prank(address(this));
         vm.expectRevert(PropertyEscrow.InvalidAddress.selector);
-        escrow.changeInspector(defaultAgreementId, seller);
+        escrow.changeInspector(id, seller);
     }
 
-    function test_ChangeInspector_Revert_onEmptyAddress() public givenFundedAgreement {
+    function test_ChangeInspector_Revert_onEmptyAddress() public {
+        uint256 id = _createAgreementOnly(buyer, seller, inspector, uint32(defaultDeadline), 50e6, 1, 300e6);
         vm.prank(address(this));
         vm.expectRevert(PropertyEscrow.ZeroAddress.selector);
-        escrow.changeInspector(defaultAgreementId, address(0));
+        escrow.changeInspector(id, address(0));
     }
 
     function test_ChangeInspector_Revert_onIncorrectState() public givenFundedAgreement {
-        for (uint256 i = 0; i < 2; i++) {
-            _approveFrom(buyer, defaultAgreementId, i);
-            _approveFrom(inspector, defaultAgreementId, i);
-
-            vm.prank(seller);
-            escrow.releaseFunds(defaultAgreementId, i);
-        }
-
         vm.prank(address(this));
         vm.expectRevert(PropertyEscrow.InvalidState.selector);
         escrow.changeInspector(defaultAgreementId, address(0x1234));
     }
 
-    function test_ChangeInspector_Revert_onNonExistingAgreement() public givenFundedAgreement {
+    function test_ChangeInspector_Revert_onNonExistingAgreement() public {
+        _createAgreementOnly(buyer, seller, inspector, uint32(defaultDeadline), 50e6, 1, 300e6);
         vm.prank(address(this));
         vm.expectRevert(PropertyEscrow.AgreementNotFound.selector);
         escrow.changeInspector(99, address(0x1234));
+    }
+
+    function test_ProposeNewInspector_Success_BothAgree() public givenFundedAgreement {
+        address newInspector = makeAddr("New Inspector");
+
+        vm.prank(buyer);
+        escrow.proposeNewInspector(defaultAgreementId, newInspector);
+
+        vm.expectEmit(true, true, true, true);
+        emit PropertyEscrow.InspectorChanged(defaultAgreementId, newInspector);
+
+        vm.prank(seller);
+        escrow.proposeNewInspector(defaultAgreementId, newInspector);
+
+        assertEq(escrow.getAgreement(defaultAgreementId).inspector, newInspector);
+    }
+
+    function test_ProposeNewInspector_Pending_OnlyOneAgrees() public givenFundedAgreement {
+        address newInspector = makeAddr("New Inspector");
+        address oldInspector = escrow.getAgreement(defaultAgreementId).inspector;
+
+        vm.prank(buyer);
+        escrow.proposeNewInspector(defaultAgreementId, newInspector);
+
+        assertEq(escrow.getAgreement(defaultAgreementId).inspector, oldInspector);
+    }
+
+    function test_ProposeNewInspector_Revert_Unauthorized() public givenFundedAgreement {
+        address newInspector = makeAddr("New Inspector");
+
+        vm.prank(inspector);
+        vm.expectRevert(PropertyEscrow.Unauthorized.selector);
+        escrow.proposeNewInspector(defaultAgreementId, newInspector);
+    }
+
+    function test_ProposeNewInspector_Revert_ZeroAddress() public givenDisputedAgreement {
+        vm.prank(buyer);
+        vm.expectRevert(PropertyEscrow.InvalidAddress.selector);
+        escrow.proposeNewInspector(defaultAgreementId, address(0));
+    }
+
+    function test_ProposeNewInspector_Revert_OnSeller() public givenDisputedAgreement {
+        vm.prank(buyer);
+        vm.expectRevert(PropertyEscrow.InvalidAddress.selector);
+        escrow.proposeNewInspector(defaultAgreementId, seller);
+    }
+
+    function test_ProposeNewInspector_Revert_InCreateState() public {
+        uint256 id = _createAgreementOnly(buyer, seller, inspector, uint32(defaultDeadline), 50e6, 1, 300e6);
+        address newInspector = makeAddr("New Inspector");
+
+        vm.prank(buyer);
+        vm.expectRevert(PropertyEscrow.InvalidState.selector);
+        escrow.proposeNewInspector(id, newInspector);
+    }
+
+    function test_ProposeNewInspector_Revert_InCompleteState() public givenFundedAgreement {
+        for (uint256 i = 0; i < 2; i++) {
+            _approveFrom(seller, defaultAgreementId, i);
+            _approveFrom(buyer, defaultAgreementId, i);
+            vm.prank(seller);
+            escrow.releaseFunds(defaultAgreementId, i);
+        }
+
+        address newInspector = makeAddr("New Inspector");
+
+        vm.prank(buyer);
+        vm.expectRevert(PropertyEscrow.InvalidState.selector);
+        escrow.proposeNewInspector(defaultAgreementId, newInspector);
     }
 
     function test_ProtocolFeeUpdate_Success() public {
@@ -133,6 +219,9 @@ contract PropertyEscrow_ManagementTest is PropertyEscrowBaseTest {
         uint256 newProtocol = 200;
 
         assertEq(escrow.protocolFeeBps(), currentFee);
+
+        vm.expectEmit(true, true, true, true);
+        emit PropertyEscrow.ProtocolFeeUpdated(newProtocol);
 
         vm.prank(escrow.owner());
         escrow.updateProtocolFee(newProtocol);
