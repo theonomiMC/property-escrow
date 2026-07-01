@@ -44,7 +44,7 @@ forge script script/PropertyEscrow.s.sol:DeployPropertyEscrow --rpc-url $RPC_URL
 
 - Network: Sepolia
 - Token: USDC at `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238`
-- Implementation: `0xA425591f89BD4f53dFA7f52D373f3BDef37b7FdB`
+- Implementation: `0x2BaE06195D9D2aa770872150208a1bD3bA8502Fe`
 - Proxy: `0xfe6aF1412F08AC469f79B8BF6FB471FF02c5f3d3`
 
 ## Testing

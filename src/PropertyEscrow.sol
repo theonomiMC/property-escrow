@@ -142,6 +142,12 @@ contract PropertyEscrow is
     /// @notice Emitted when protocol fee is updated
     event ProtocolFeeUpdated(uint256 newFeeBps);
 
+    /// @notice Emitted when admin proposes new inspector
+    event InspectorProposed(uint256 indexed agreementId, address indexed proposer, address proposedInspector);
+
+    /// @notice Emitted when buyer/seller proposes new deadline
+    event DeadlineProposed(uint256 indexed agreementId, address indexed proposer, uint256 proposedDeadline);
+
     // ============= CUSTOM ERRORS ===========================
     /// @notice Thrown when the msg.sender is not authorized to execute the restricted operation.
     error Unauthorized();
@@ -701,6 +707,8 @@ contract PropertyEscrow is
             a.sellerProposedDeadline = newDeadline;
         }
 
+        emit DeadlineProposed(agreementId, msg.sender, newDeadline);
+
         if (a.buyerProposedDeadline > 0 && a.buyerProposedDeadline == a.sellerProposedDeadline) {
             a.deadline = a.buyerProposedDeadline;
 
@@ -735,18 +743,25 @@ contract PropertyEscrow is
     function proposeNewInspector(uint256 agreementId, address newInspector) external agreementExists(agreementId) {
         Agreement storage a = agreements[agreementId];
 
-        if (a.state != State.Funded && a.state != State.Disputed) revert InvalidState();
-        if (msg.sender != a.buyer && msg.sender != a.seller) revert Unauthorized();
+        if (a.state != State.Funded && a.state != State.Disputed) {
+            revert InvalidState();
+        }
+        if (msg.sender != a.buyer && msg.sender != a.seller) {
+            revert Unauthorized();
+        }
         if (newInspector == address(0) || newInspector == a.buyer || newInspector == a.seller) revert InvalidAddress();
 
-        if (msg.sender == a.buyer) a.buyerProposedInspector = newInspector;
-        else a.sellerProposedInspector = newInspector;
+        if (msg.sender == a.buyer) {
+            a.buyerProposedInspector = newInspector;
+        } else {
+            a.sellerProposedInspector = newInspector;
+        }
 
-        // თუ ორივე მხარე ეთანხმება ერთსა და იმავე მისამართს
+        emit InspectorProposed(agreementId, msg.sender, newInspector);
+
         if (a.buyerProposedInspector != address(0) && a.buyerProposedInspector == a.sellerProposedInspector) {
             a.inspector = a.buyerProposedInspector;
 
-            // ბუფერების გასუფთავება
             a.buyerProposedInspector = address(0);
             a.sellerProposedInspector = address(0);
 
