@@ -10,6 +10,10 @@ A smart contract that holds money during real estate deals. Three parties agree:
 4. When 2 of 3 approve, money goes to the Seller
 5. If deadline passes without completion, unfinished money returns to Buyer
 
+## Web3 User Interface
+The frontend application for this protocol is fully deployed and interactive:
+- **Live Deployment:** [https://property-escrow-ui.vercel.app/](https://property-escrow-ui.vercel.app/)
+
 ## Key Rules
 
 - 2 of 3 parties must approve before any payment is released
@@ -19,10 +23,12 @@ A smart contract that holds money during real estate deals. Three parties agree:
 - Owner can pause the contract in emergencies
 
 **Changes:**
+
 - Added inspector proposal mechanism (mutual consent)
 - Blocked approvals during disputes (freezes negotiations)
 - Improved deadline validation
 - Test coverage: 96.91%
+
 
 ## Setup
 
@@ -56,5 +62,3 @@ forge script script/PropertyEscrow.s.sol:DeployPropertyEscrow --rpc-url $RPC_URL
 ## License
 
 MIT
-
-
